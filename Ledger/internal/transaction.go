@@ -1,10 +1,5 @@
 package internal
 
-import (
-	"encoding/json"
-	"io"
-)
-
 var allTransaction []Transaction
 var allBudget = map[string]Budget{
 	"Еда":      {category: "Еда", limit: 15000},
@@ -19,22 +14,23 @@ type Transaction struct {
 	date        string
 }
 
-type Budget struct {
-	category string
-	limit    float64
+func (t Transaction) Validate() error {
+	if t.amount <= 0 {
+		return errNegativeLimit
+	} else if t.category == "" {
+		return errNullCategory
+	}
+	return nil
 }
 
 func NewTransaction(amount float64, category string, description string, date string) Transaction {
 	return Transaction{len(allTransaction) + 1, amount, category, description, date}
 }
 
-func NewBudget(category string, limit float64) Budget {
-	return Budget{category, limit}
-}
-
 func AddTransaction(tx Transaction) error {
-	if tx.amount < 0 {
-		return errNegativeAmount
+	err := tx.Validate()
+	if err != nil {
+		return err
 	}
 
 	if sumTransactionCategory(tx)+tx.amount > allBudget[tx.category].limit {
@@ -55,30 +51,6 @@ func sumTransactionCategory(tx Transaction) float64 {
 	return sum
 }
 
-func SetBudget(b Budget) {
-	allBudget[b.category] = b
-}
-
 func ListTransactions() []Transaction {
 	return allTransaction
-}
-
-func ListBudget() map[string]Budget {
-	return allBudget
-}
-
-func LoadBudgets(r io.Reader) error {
-	var items []struct {
-		Category string  `json:"category"`
-		Limit    float64 `json:"limit"`
-	}
-
-	if err := json.NewDecoder(r).Decode(&items); err != nil {
-		return errReadJSON
-	}
-
-	for _, it := range items {
-		SetBudget(NewBudget(it.Category, it.Limit))
-	}
-	return nil
 }
